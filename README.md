@@ -1,1 +1,10 @@
 # GeeCache
+
+
+## To-do List
+
+- [ ]单机缓存和基于HTTP的分布式缓存
+- [ ]最近最少访问（Least Recently Used,LRU)缓存策略
+- [ ]使用Go锁机制防止缓存击穿
+- [ ]使用一致性hash选择节点，实现负载均衡
+- [ ]使用protobuf优化节点间二进制通信
