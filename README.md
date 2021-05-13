@@ -4,7 +4,10 @@
 1. 实现了LRU缓存的并发控制
 2. 实现了GeeCache核心数据结构Group，缓存不存在时，调用回调函数
 获取源数据。
-
+##Day 3
+1. 利用Go语言标准库http搭建HTTP Server
+2. 用main函数启动HTTP Server测试API
+3. 实现一致性hash代码
 ## To-do List
 
 - [ ] 单机缓存和基于HTTP的分布式缓存
