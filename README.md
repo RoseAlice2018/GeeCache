@@ -8,6 +8,9 @@
 1. 利用Go语言标准库http搭建HTTP Server
 2. 用main函数启动HTTP Server测试API
 3. 实现一致性hash代码
+##Day 4
+1. 注册节点，借助一致性Hash算法选择节点
+2. 实现HTTP客户端，与远程节点的服务端通信
 ## To-do List
 
 - [ ] 单机缓存和基于HTTP的分布式缓存
