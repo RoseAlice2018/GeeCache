@@ -1,18 +1,31 @@
 package geecache
 
 import (
+	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
+	"net/url"
 	"strings"
+	"sync"
+	"./consistenthash"
 )
 
 const defaultBasePath = "/_geecache/"
+const defaultReplicas = 50
 
 // HTTPPool implements PeerPicker for a pool of HTTP peers.
+/*
+	peers 用来根据具体的key选择节点
+	httpGetters，映射远程节点与对应的 httpGetter。每一个远程节点对应一个 httpGetter，因为 httpGetter 与远程节点的地址 baseURL 有关。
+ */
 type HTTPPool struct {
 	// this peer's base URL, e.g. "https://example.net:8000"
 	self string
 	basePath string
+	mu sync.Mutex
+	peers *consistenthash.Map
+	httpGetters map[string]*httpGetter //keyed by e.g. "http://10.0.0.0:8008"
 }
 
 //NewHTTPPool initializes an HTTP pool of peers
@@ -58,15 +71,66 @@ func (p *HTTPPool)ServeHTTP(w http.ResponseWriter,r *http.Request){
 	w.Header().Set("Content-Type", "application/octet-stream")
 	w.Write(view.ByteSlice())
 }
+/*
+	baseURL 表示将要访问的远程节点的地址，例如 http://example.com/_geecache/。
+ */
+type httpGetter struct{
+	baseURL string
+}
+/*
+	使用 http.Get() 方式获取返回值，并转换为 []bytes 类型。
+ */
+func (h *httpGetter)Get(group string,key string)([]byte,error){
+	u := fmt.Sprintf(
+		"%v%v/%v",h.baseURL,
+		url.QueryEscape(group),
+		url.QueryEscape(key),
+		)
+	res,err := http.Get(u)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		return nil,fmt.Errorf("server returned: %v",res.Status)
+	}
+	bytes,err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return nil,fmt.Errorf("reading response body:%v",err)
+	}
+	return bytes,nil
+}
+
+var _PeerGetter = (*httpGetter)(nil)
 
 
 
 
+// Set updates the pool's list of peers.
+func (p *HTTPPool) Set(peers ...string) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.peers = consistenthash.New(defaultReplicas, nil)
+	p.peers.Add(peers...)
+	p.httpGetters = make(map[string]*httpGetter, len(peers))
+	for _, peer := range peers {
+		p.httpGetters[peer] = &httpGetter{baseURL: peer + p.basePath}
+	}
+}
 
+// PickPeer picks a peer according to key
+func (p *HTTPPool) PickPeer(key string) (PeerGetter, bool) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if peer := p.peers.Get(key); peer != "" && peer != p.self {
+		p.Log("Pick peer %s", peer)
+		return p.httpGetters[peer], true
+	}
+	return nil, false
+}
 
-
-
-
+var _ PeerPicker = (*HTTPPool)(nil)
 
 
 
